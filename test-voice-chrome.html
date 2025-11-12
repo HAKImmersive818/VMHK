@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Recognition Test - Chrome</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%);
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0891b2;
+            margin-bottom: 10px;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .success { background: #d1fae5; color: #065f46; border: 2px solid #10b981; }
+        .error { background: #fee2e2; color: #991b1b; border: 2px solid #ef4444; }
+        .warning { background: #fef3c7; color: #92400e; border: 2px solid #f59e0b; }
+        .info { background: #dbeafe; color: #1e40af; border: 2px solid #3b82f6; }
+        button {
+            background: linear-gradient(135deg, #0891b2, #14b8a6);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-weight: bold;
+        }
+        button:hover {
+            background: linear-gradient(135deg, #0e7490, #0d9488);
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        #transcript {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 100px;
+            margin: 15px 0;
+            border: 2px solid #d1d5db;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 10px;
+            border-left: 4px solid #0891b2;
+        }
+        code {
+            background: #1f2937;
+            color: #10b981;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Chrome Voice Recognition Diagnostic</h1>
+        <p>This will test if voice recognition works in your Chrome browser.</p>
+
+        <!-- Test 1: Browser Support -->
+        <div class="test-section">
+            <h3>Test 1: Browser Support</h3>
+            <div id="support-status"></div>
+        </div>
+
+        <!-- Test 2: Microphone Access -->
+        <div class="test-section">
+            <h3>Test 2: Microphone Access</h3>
+            <button onclick="testMicrophone()">Test Microphone</button>
+            <div id="mic-status"></div>
+        </div>
+
+        <!-- Test 3: Internet Connection -->
+        <div class="test-section">
+            <h3>Test 3: Internet & Google API</h3>
+            <button onclick="testInternet()">Test Connection</button>
+            <div id="internet-status"></div>
+        </div>
+
+        <!-- Test 4: Voice Recognition -->
+        <div class="test-section">
+            <h3>Test 4: Voice Recognition</h3>
+            <button id="start-btn" onclick="startRecognition()">🎤 Start Voice Test</button>
+            <button id="stop-btn" onclick="stopRecognition()" disabled>⏹️ Stop</button>
+            <div id="recognition-status"></div>
+            <div id="transcript"></div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="test-section">
+            <h3>📋 Instructions</h3>
+            <ol>
+                <li>Run each test in order</li>
+                <li>If Test 4 shows "network error", check your internet/firewall</li>
+                <li>If all tests pass, voice should work in the main app</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        let recognition = null;
+
+        // Test 1: Browser Support
+        window.onload = function() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const supportDiv = document.getElementById('support-status');
+            
+            if (SpeechRecognition) {
+                supportDiv.innerHTML = '<div class="status success">✅ Speech Recognition is supported in your browser!</div>';
+                console.log('✅ Speech Recognition supported');
+            } else {
+                supportDiv.innerHTML = '<div class="status error">❌ Speech Recognition is NOT supported in your browser!</div>';
+                console.error('❌ Speech Recognition not supported');
+            }
+        };
+
+        // Test 2: Microphone Access
+        async function testMicrophone() {
+            const statusDiv = document.getElementById('mic-status');
+            statusDiv.innerHTML = '<div class="status info">⏳ Testing microphone access...</div>';
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                statusDiv.innerHTML = '<div class="status success">✅ Microphone access granted! Your mic is working.</div>';
+                console.log('✅ Microphone access granted');
+                
+                // Stop the stream
+                stream.getTracks().forEach(track => track.stop());
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Microphone access denied!<br>Error: ${error.message}<br>Click the 🔒 icon in address bar and allow microphone.</div>`;
+                console.error('❌ Microphone error:', error);
+            }
+        }
+
+        // Test 3: Internet Connection
+        async function testInternet() {
+            const statusDiv = document.getElementById('internet-status');
+            statusDiv.innerHTML = '<div class="status info">⏳ Testing internet connection...</div>';
+            
+            try {
+                // Test basic internet
+                await fetch('https://www.google.com', { mode: 'no-cors' });
+                statusDiv.innerHTML = '<div class="status success">✅ Internet connection working!</div>';
+                console.log('✅ Internet working');
+                
+                // Test if we can reach Google APIs
+                try {
+                    await fetch('https://www.google.com/speech-api/v2/recognize', { mode: 'no-cors' });
+                    statusDiv.innerHTML += '<div class="status success">✅ Google Speech API is reachable!</div>';
+                    console.log('✅ Google Speech API reachable');
+                } catch (apiError) {
+                    statusDiv.innerHTML += '<div class="status warning">⚠️ Cannot verify Google Speech API access (this is normal due to CORS)</div>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ No internet connection!<br>Error: ${error.message}</div>`;
+                console.error('❌ Internet error:', error);
+            }
+        }
+
+        // Test 4: Voice Recognition
+        function startRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const statusDiv = document.getElementById('recognition-status');
+            const transcriptDiv = document.getElementById('transcript');
+            
+            if (!SpeechRecognition) {
+                statusDiv.innerHTML = '<div class="status error">❌ Speech Recognition not supported!</div>';
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                statusDiv.innerHTML = '<div class="status success">✅ Voice recognition started! Speak now...</div>';
+                transcriptDiv.innerHTML = '<p style="color: #6b7280;">Listening... speak into your microphone...</p>';
+                document.getElementById('start-btn').disabled = true;
+                document.getElementById('stop-btn').disabled = false;
+                console.log('✅ Recognition started');
+            };
+
+            recognition.onresult = (event) => {
+                let interim = '';
+                let final = '';
+
+                for (let i = 0; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        final += transcript + ' ';
+                    } else {
+                        interim += transcript;
+                    }
+                }
+
+                let html = '';
+                if (final) {
+                    html += `<p style="color: #059669; font-weight: bold;">✅ Final: ${final}</p>`;
+                    console.log('✅ Final:', final);
+                }
+                if (interim) {
+                    html += `<p style="color: #0891b2;">🎤 Interim: ${interim}</p>`;
+                    console.log('🎤 Interim:', interim);
+                }
+                transcriptDiv.innerHTML = html || transcriptDiv.innerHTML;
+            };
+
+            recognition.onerror = (event) => {
+                console.error('❌ Recognition error:', event.error);
+                
+                let errorMsg = '';
+                switch(event.error) {
+                    case 'network':
+                        errorMsg = `
+                            <div class="status error">
+                                ❌ NETWORK ERROR!<br><br>
+                                <strong>This means:</strong><br>
+                                • Your browser cannot connect to Google's Speech API<br>
+                                • Check your internet connection<br>
+                                • Disable VPN/proxy if using one<br>
+                                • Check firewall/antivirus settings<br>
+                                • Try from a different network (home WiFi vs mobile hotspot)<br><br>
+                                <strong>This is NOT a code issue - it's a network/firewall issue.</strong>
+                            </div>
+                        `;
+                        break;
+                    case 'not-allowed':
+                        errorMsg = '<div class="status error">❌ Microphone permission denied! Click 🔒 in address bar and allow microphone.</div>';
+                        break;
+                    case 'no-speech':
+                        errorMsg = '<div class="status warning">⚠️ No speech detected. Try speaking louder.</div>';
+                        break;
+                    default:
+                        errorMsg = `<div class="status error">❌ Error: ${event.error}</div>`;
+                }
+                
+                statusDiv.innerHTML = errorMsg;
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('stop-btn').disabled = true;
+            };
+
+            recognition.onend = () => {
+                console.log('Recognition ended');
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('stop-btn').disabled = true;
+            };
+
+            try {
+                recognition.start();
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Failed to start: ${error.message}</div>`;
+                console.error('❌ Start error:', error);
+            }
+        }
+
+        function stopRecognition() {
+            if (recognition) {
+                recognition.stop();
+                console.log('🛑 Recognition stopped manually');
+            }
+        }
+    </script>
+</body>
+</html>
