@@ -1,4 +1,4 @@
-const Anthropic = require('@anthropic-ai/sdk').default;
+const Anthropic = require('@anthropic-ai/sdk');
 
 // Simple text similarity function for RAG
 function calculateSimilarity(text1, text2) {
@@ -102,8 +102,10 @@ exports.handler = async function(event, context) {
     console.log('Initializing Anthropic client...');
     let anthropic;
     try {
+      const rawKey = process.env.ANTHROPIC_API_KEY || '';
+      const apiKey = rawKey.trim();
       anthropic = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY,
+        apiKey,
       });
       console.log('Anthropic client initialized successfully');
     } catch (initError) {
@@ -193,7 +195,7 @@ Keep responses concise (2-3 sentences) and conversational.`;
     let errorMessage = 'Failed to process request';
     let errorType = 'UNKNOWN_ERROR';
     
-    if (error.message?.includes('API key')) {
+    if (error.status === 401 || error.message?.toLowerCase().includes('invalid x-api-key') || error.message?.toLowerCase().includes('api key')) {
       errorMessage = 'Invalid API key. Please check your ANTHROPIC_API_KEY in Netlify environment variables.';
       errorType = 'INVALID_API_KEY';
     } else if (error.message?.includes('rate limit')) {

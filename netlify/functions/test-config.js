@@ -15,10 +15,14 @@ exports.handler = async function(event, context) {
     return { statusCode: 200, headers, body: '' };
   }
 
-  const apiKeyPresent = !!process.env.ANTHROPIC_API_KEY;
-  const apiKeyPrefix = apiKeyPresent 
-    ? process.env.ANTHROPIC_API_KEY.substring(0, 7) + '...' 
-    : 'NOT SET';
+  const raw = process.env.ANTHROPIC_API_KEY || '';
+  const apiKeyPresent = !!raw;
+  const trimmed = raw.trim();
+  const apiKeyPrefix = apiKeyPresent ? trimmed.substring(0, 7) + '...' : 'NOT SET';
+  const apiKeySuffix = apiKeyPresent && trimmed.length >= 4 ? '...' + trimmed.slice(-4) : '';
+  const hasLeadingOrTrailingWhitespace = apiKeyPresent && raw !== trimmed;
+  const containsWhitespaceChars = apiKeyPresent && /\s/.test(raw);
+  const startsWithSkAnt = apiKeyPresent && trimmed.startsWith('sk-ant-');
 
   const diagnostics = {
     timestamp: new Date().toISOString(),
@@ -26,7 +30,11 @@ exports.handler = async function(event, context) {
     nodeVersion: process.version,
     apiKeyConfigured: apiKeyPresent,
     apiKeyPrefix: apiKeyPrefix,
-    apiKeyLength: apiKeyPresent ? process.env.ANTHROPIC_API_KEY.length : 0,
+    apiKeySuffix: apiKeySuffix,
+    apiKeyLength: apiKeyPresent ? trimmed.length : 0,
+    startsWithSkAnt: startsWithSkAnt,
+    hasLeadingOrTrailingWhitespace: hasLeadingOrTrailingWhitespace,
+    containsWhitespaceChars: containsWhitespaceChars,
     expectedKeyFormat: 'sk-ant-...',
     allEnvVars: Object.keys(process.env).filter(k => 
       !k.includes('SECRET') && 
