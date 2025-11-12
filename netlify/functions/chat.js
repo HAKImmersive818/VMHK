@@ -174,11 +174,11 @@ ${contextSection}
 Keep responses concise (2-3 sentences) and conversational.`;
 
     // Call Anthropic API
-    console.log('Calling Anthropic API with model: claude-3-5-sonnet-20241022');
+    console.log('Calling Anthropic API with model: claude-3-haiku-20240307');
     console.log('Message length:', message.length, 'System prompt length:', systemPrompt.length);
     
     const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-3-haiku-20240307',
       max_tokens: 1024,
       messages: [{
         role: 'user',
