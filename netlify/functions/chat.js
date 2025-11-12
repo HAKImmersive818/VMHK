@@ -103,9 +103,18 @@ exports.handler = async function(event, context) {
     let anthropic;
     try {
       const rawKey = process.env.ANTHROPIC_API_KEY || '';
-      const apiKey = rawKey.trim();
+      const trimmedKey = rawKey.trim();
+      // Normalize common misconfigurations, e.g. pasting 'ANTHROPIC_API_KEY=sk-ant-...' or leading '='
+      let normalizedKey = trimmedKey;
+      if (!trimmedKey.startsWith('sk-ant-')) {
+        const m = trimmedKey.match(/sk-ant-[A-Za-z0-9_-]+/);
+        if (m && m[0]) {
+          console.log('Normalizing ANTHROPIC_API_KEY from misformatted value.');
+          normalizedKey = m[0];
+        }
+      }
       anthropic = new Anthropic({
-        apiKey,
+        apiKey: normalizedKey,
       });
       console.log('Anthropic client initialized successfully');
     } catch (initError) {
