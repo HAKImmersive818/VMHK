@@ -31,7 +31,18 @@ export async function sendMessageToAI(message, conversationHistory = []) {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to get AI response');
+      const errorMessage = errorData.error || 'Failed to get AI response';
+      const errorType = errorData.errorType || 'UNKNOWN_ERROR';
+      
+      console.error('API Error:', errorType, '-', errorMessage);
+      if (errorData.details) {
+        console.error('Details:', errorData.details);
+      }
+      
+      const error = new Error(errorMessage);
+      error.type = errorType;
+      error.details = errorData.details;
+      throw error;
     }
 
     const data = await response.json();
@@ -39,6 +50,13 @@ export async function sendMessageToAI(message, conversationHistory = []) {
     
   } catch (error) {
     console.error('AI Service Error:', error);
+    
+    // Add more context to network errors
+    if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+      error.message = 'Network error: Unable to reach the API. Check your internet connection or Netlify function deployment.';
+      error.type = 'NETWORK_ERROR';
+    }
+    
     throw error;
   }
 }

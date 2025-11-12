@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+const Anthropic = require('@anthropic-ai/sdk').default;
 
 // Simple text similarity function for RAG
 function calculateSimilarity(text1, text2) {
@@ -37,12 +37,29 @@ function retrieveRelevantContext(query) {
     .filter(article => article.score > 0.1);
 }
 
-export async function handler(event, context) {
+exports.handler = async function(event, context) {
+  // CORS headers
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  };
+
+  // Handle OPTIONS request for CORS
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    };
+  }
+
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ error: 'Method not allowed' })
     };
   }
@@ -53,29 +70,54 @@ export async function handler(event, context) {
 
     console.log('Function called with message:', message?.substring(0, 50));
     console.log('API Key present:', !!process.env.ANTHROPIC_API_KEY);
+    console.log('Environment:', process.env.CONTEXT || 'unknown');
 
     if (!message) {
       return {
         statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Message is required' })
+        headers,
+        body: JSON.stringify({ 
+          error: 'Message is required',
+          errorType: 'VALIDATION_ERROR'
+        })
       };
     }
 
     // Check if API key exists
     if (!process.env.ANTHROPIC_API_KEY) {
       console.error('ANTHROPIC_API_KEY not found in environment variables');
+      console.error('Available env vars:', Object.keys(process.env).filter(k => !k.includes('SECRET')));
       return {
         statusCode: 500,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'API key not configured' })
+        headers,
+        body: JSON.stringify({ 
+          error: 'API key not configured. Please set ANTHROPIC_API_KEY in Netlify environment variables.',
+          errorType: 'MISSING_API_KEY',
+          details: 'Go to Netlify Dashboard > Site Settings > Environment Variables to add ANTHROPIC_API_KEY'
+        })
       };
     }
 
     // Initialize Anthropic client
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
+    console.log('Initializing Anthropic client...');
+    let anthropic;
+    try {
+      anthropic = new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY,
+      });
+      console.log('Anthropic client initialized successfully');
+    } catch (initError) {
+      console.error('Failed to initialize Anthropic client:', initError);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ 
+          error: 'Failed to initialize AI client: ' + initError.message,
+          errorType: 'INIT_ERROR',
+          details: initError.stack
+        })
+      };
+    }
 
     // Use RAG knowledge from frontend if available, otherwise retrieve here
     let contextSection = '';
@@ -121,6 +163,9 @@ ${contextSection}
 Keep responses concise (2-3 sentences) and conversational.`;
 
     // Call Anthropic API
+    console.log('Calling Anthropic API with model: claude-3-5-sonnet-20241022');
+    console.log('Message length:', message.length, 'System prompt length:', systemPrompt.length);
+    
     const response = await anthropic.messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 1024,
@@ -133,21 +178,40 @@ Keep responses concise (2-3 sentences) and conversational.`;
 
     const aiResponse = response.content[0].text;
 
+    console.log('Successfully got AI response, length:', aiResponse.length);
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ response: aiResponse })
     };
 
   } catch (error) {
     console.error('Error in chat function:', error);
+    console.error('Error details:', error.message, error.stack);
+    
+    // Provide specific error messages for common issues
+    let errorMessage = 'Failed to process request';
+    let errorType = 'UNKNOWN_ERROR';
+    
+    if (error.message?.includes('API key')) {
+      errorMessage = 'Invalid API key. Please check your ANTHROPIC_API_KEY in Netlify environment variables.';
+      errorType = 'INVALID_API_KEY';
+    } else if (error.message?.includes('rate limit')) {
+      errorMessage = 'API rate limit exceeded. Please try again in a moment.';
+      errorType = 'RATE_LIMIT';
+    } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+      errorMessage = 'Network error connecting to Anthropic API. Please check your internet connection.';
+      errorType = 'NETWORK_ERROR';
+    }
+    
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ 
-        error: 'Failed to process request',
+        error: errorMessage,
+        errorType: errorType,
         details: error.message 
       })
     };
   }
-}
+};

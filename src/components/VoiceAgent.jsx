@@ -323,13 +323,28 @@ function VoiceAgent() {
     } catch (error) {
       console.error('Error getting AI response:', error);
       
-      // Use fallback response if API fails
-      const fallbackResponse = getFallbackResponse(userMessage);
-      setMessages(prev => [
-        ...prev, 
-        { text: fallbackResponse + " (Note: Using offline mode)", sender: 'doctor' }
-      ]);
-      speak(fallbackResponse);
+      // Show specific error message if it's an API configuration issue
+      let errorResponse;
+      if (error.type === 'MISSING_API_KEY' || error.type === 'INVALID_API_KEY') {
+        errorResponse = `⚠️ API Configuration Error: ${error.message}`;
+        setMessages(prev => [
+          ...prev, 
+          { text: errorResponse, sender: 'doctor' }
+        ]);
+        speak("There's an API configuration issue. Please check the console for details.");
+      } else {
+        // Use fallback response for other errors
+        const fallbackResponse = getFallbackResponse(userMessage);
+        errorResponse = error.type === 'NETWORK_ERROR' 
+          ? `${fallbackResponse} (⚠️ Network issue - using offline mode. Error: ${error.message})`
+          : `${fallbackResponse} (⚠️ Using offline mode)`;
+        
+        setMessages(prev => [
+          ...prev, 
+          { text: errorResponse, sender: 'doctor' }
+        ]);
+        speak(fallbackResponse);
+      }
     }
     
     setIsProcessing(false);
