@@ -37,23 +37,26 @@ function retrieveRelevantContext(query) {
     .filter(article => article.score > 0.1);
 }
 
-export default async function handler(req, context) {
+export async function handler(event, context) {
   // Only allow POST requests
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Method not allowed' })
+    };
   }
 
   try {
-    const { message } = await req.json();
+    const body = event.body ? JSON.parse(event.body) : {};
+    const { message } = body;
 
     if (!message) {
-      return new Response(JSON.stringify({ error: 'Message is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Message is required' })
+      };
     }
 
     // Initialize Anthropic client
@@ -110,23 +113,21 @@ Keep responses concise (2-3 sentences) and conversational.`;
 
     const aiResponse = response.content[0].text;
 
-    return new Response(JSON.stringify({ response: aiResponse }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ response: aiResponse })
+    };
 
   } catch (error) {
     console.error('Error in chat function:', error);
-    return new Response(JSON.stringify({ 
-      error: 'Failed to process request',
-      details: error.message 
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        error: 'Failed to process request',
+        details: error.message 
+      })
+    };
   }
 }
-
-export const config = {
-  path: "/api/chat"
-};
