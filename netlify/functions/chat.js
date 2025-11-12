@@ -49,7 +49,10 @@ export async function handler(event, context) {
 
   try {
     const body = event.body ? JSON.parse(event.body) : {};
-    const { message } = body;
+    const { message, conversationHistory = [], relevantKnowledge = [] } = body;
+
+    console.log('Function called with message:', message?.substring(0, 50));
+    console.log('API Key present:', !!process.env.ANTHROPIC_API_KEY);
 
     if (!message) {
       return {
@@ -59,18 +62,35 @@ export async function handler(event, context) {
       };
     }
 
+    // Check if API key exists
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error('ANTHROPIC_API_KEY not found in environment variables');
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'API key not configured' })
+      };
+    }
+
     // Initialize Anthropic client
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    // Retrieve relevant context using RAG
-    const relevantArticles = retrieveRelevantContext(message);
-    const contextSection = relevantArticles.length > 0
-      ? `\n\nRelevant VisiMedica Information:\n${relevantArticles.map(article => 
+    // Use RAG knowledge from frontend if available, otherwise retrieve here
+    let contextSection = '';
+    if (relevantKnowledge && relevantKnowledge.length > 0) {
+      contextSection = `\n\nRelevant VisiMedica Information:\n${relevantKnowledge.map(item => 
+        `- ${item.topic}: ${item.content}`
+      ).join('\n')}`;
+    } else {
+      const relevantArticles = retrieveRelevantContext(message);
+      if (relevantArticles.length > 0) {
+        contextSection = `\n\nRelevant VisiMedica Information:\n${relevantArticles.map(article => 
           `- ${article.topic}: ${article.content}`
-        ).join('\n')}`
-      : '';
+        ).join('\n')}`;
+      }
+    }
 
     // System prompt with VisiMedica context
     const systemPrompt = `You are Dr. Chowdhury, the AI-powered physician assistant for VisiMedica, a precision longevity medicine platform. 
